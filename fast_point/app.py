@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from fast_point.database import get_session
@@ -65,9 +66,7 @@ def read_user(
 @app.get(
     '/users/{user_id}', status_code=HTTPStatus.OK, response_model=UserPublic
 )
-def read_user_id(
-    user_id: int, session: Session = Depends(get_session)
-):
+def read_user_id(user_id: int, session: Session = Depends(get_session)):
     user_db = session.scalar(select(User).where(User.id == user_id))
 
     if not user_db:
@@ -92,15 +91,22 @@ def update_user(
             status_code=HTTPStatus.NOT_FOUND, detail='User not found'
         )
 
-    user_db.email = user.email
-    user_db.username = user.username
-    user_db.password = user.password
+    try:
+        user_db.email = user.email
+        user_db.username = user.username
+        user_db.password = user.password
 
-    session.add(user_db)
-    session.commit()
-    session.refresh(user_db)
+        session.add(user_db)
+        session.commit()
+        session.refresh(user_db)
 
-    return user_db
+        return user_db
+
+    except IntegrityError:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail='Username or Email already exists',
+        )
 
 
 @app.delete(

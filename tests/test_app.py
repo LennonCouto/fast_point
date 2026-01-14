@@ -15,7 +15,7 @@ def test_create_user(client):
         '/users/',
         json={
             'username': 'alice',
-            'email': 'alice@example.com',
+            'email': 'alice@exemple.com',
             'password': 'secret',
         },
     )
@@ -24,8 +24,36 @@ def test_create_user(client):
     assert response.json() == {
         'id': 1,
         'username': 'alice',
-        'email': 'alice@example.com',
+        'email': 'alice@exemple.com',
     }
+
+
+def test_create_user_username_already_exists(client, user):
+    response = client.post(
+        '/users/',
+        json={
+            'username': 'Lennon',
+            'email': 'alice@exemple.com',
+            'password': 'secret',
+        },
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT
+    assert response.json() == {'detail': 'Username already exists'}
+
+
+def test_create_user_email_already_exists(client, user):
+    response = client.post(
+        '/users/',
+        json={
+            'username': 'Alice',
+            'email': 'lennon@exemple.com',
+            'password': 'secret',
+        },
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT
+    assert response.json() == {'detail': 'Email already exists'}
 
 
 def test_read_users(client):
@@ -45,18 +73,19 @@ def test_read_users_with_users(client, user):
 
 
 def test_update_user(client, user):
-    response = client.put('/users/1',
+    response = client.put(
+        '/users/1',
         json={
-        'username': 'bob',
-        'email': 'bob@example.com',
-        'password': 'secret',
-    },
-)
+            'username': 'bob',
+            'email': 'bob@exemple.com',
+            'password': 'secret',
+        },
+    )
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {
         'username': 'bob',
-        'email': 'bob@example.com',
+        'email': 'bob@exemple.com',
         'id': 1,
     }
 
@@ -66,13 +95,36 @@ def test_update_user_should_return_not_found(client):
         '/users/99',
         json={
             'username': 'bob',
-            'email': 'bob@example.com',
+            'email': 'bob@exemple.com',
             'password': 'secret',
         },
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'User not found'}
+
+
+def test_update_integry_error(client, user):
+    client.post(
+        '/users/',
+        json={
+            'username': 'fausto',
+            'email': 'fausto@exemple.com',
+            'password': 'secret',
+        },
+    )
+
+    response = client.put(
+        f'/users/{user.id}',
+        json={
+            'username': 'fausto',
+            'email': 'fausto@exemple.com',
+            'password': 'mynewpassword',
+        },
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT
+    assert response.json() == {'detail': 'Username or Email already exists'}
 
 
 def test_get_user(client, user):
