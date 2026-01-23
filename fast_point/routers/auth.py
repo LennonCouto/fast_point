@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fast_point.database import get_session
 from fast_point.models import User
 from fast_point.schemas import Token
-from fast_point.security import create_access_token, verify_password
+from fast_point.security import (
+    create_access_token,
+    get_current_user,
+    verify_password,
+)
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -26,14 +30,24 @@ async def login_for_access_token(form_data: OAuthForm, session: Session):
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
-            detail='Incorrect email or username',
+            detail='Incorrect email or password',
         )
 
     if not verify_password(form_data.password, user.password):
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
-            detail='Incorrect email or username',
+            detail='Incorrect email or password',
         )
 
     access_token = create_access_token({'sub': user.email})
     return {'access_token': access_token, 'token_type': 'Bearer'}
+
+
+@router.post('/refresh_token', response_model=Token)
+async def refresh_access_token(
+    user: Annotated[User, Depends(get_current_user)]
+):
+
+    new_access_token = create_access_token(data={'sub': user.email})
+
+    return {'access_token': new_access_token, 'token_type': 'Bearer'}
