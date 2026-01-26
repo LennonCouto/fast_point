@@ -45,7 +45,7 @@ async def login_for_access_token(form_data: OAuthForm, session: Session):
 
 @router.post('/refresh_token', response_model=Token)
 async def refresh_access_token(
-    user: Annotated[User, Depends(get_current_user)]
+    user: Annotated[User, Depends(get_current_user)],
 ):
 
     new_access_token = create_access_token(data={'sub': user.email})
