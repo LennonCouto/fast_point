@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from fast_point.models_todos import TodoState
@@ -12,6 +14,8 @@ class TodoShema(BaseModel):
 
 class TodoPublic(TodoShema):
     id: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class FilterTodo(FilterPage):

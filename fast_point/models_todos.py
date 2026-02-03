@@ -1,6 +1,7 @@
+from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fast_point.database import table_registry
@@ -22,5 +23,11 @@ class Todo:
     title: Mapped[str]
     description: Mapped[str]
     state: Mapped[TodoState]
+    created_at: Mapped[datetime] = mapped_column(
+        init=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        init=False, server_default=func.now(), onupdate=func.now()
+    )
 
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))

@@ -3,7 +3,9 @@ from http import HTTPStatus
 import factory
 import factory.fuzzy
 import pytest
+from sqlalchemy.exc import DataError
 
+from fast_point.models import User
 from fast_point.models_todos import Todo, TodoState
 
 
@@ -17,19 +19,90 @@ class TodoFactory(factory.Factory):
     user_id = 1
 
 
-def test_create_todo(client, token):
-    response = client.post(
-        '/todos/',
-        headers={'Authorization': f'Bearer {token}'},
-        json={'title': 'todolist', 'description': 'Already', 'state': 'todo'},
-    )
+def test_create_todo(client, token, mock_db_time):
+    with mock_db_time(model=Todo) as time:
+        response = client.post(
+            '/todos/',
+            headers={'Authorization': f'Bearer {token}'},
+            json={
+                'title': 'todolist',
+                'description': 'Already',
+                'state': 'todo',
+            },
+        )
 
     assert response.json() == {
         'id': 1,
         'title': 'todolist',
         'description': 'Already',
         'state': 'todo',
+        'created_at': time.isoformat(),
+        'updated_at': time.isoformat(),
     }
+
+
+@pytest.mark.asyncio
+async def test_create_todo_error(session, user: User):
+    todo = Todo(
+        user_id=user.id,
+        title='test',
+        description='test',
+        state='test',
+    )
+
+    session.add(todo)
+
+    with pytest.raises(DataError):
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_todo_filter_min_length(client, token):
+    response = client.get(
+        '/todos/?title=a', headers={'Authorization': f'Bearer {token}'}
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_todo_filter_max_length(client, token):
+    large_string = 'a' * 23
+    response = client.get(
+        f'/todos/?title={large_string}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_list_todos_should_return_all_expected_fields(
+    session, client, user, token, mock_db_time
+):
+    with mock_db_time(model=Todo) as time:
+        todo = TodoFactory(user_id=user.id)
+        session.add(todo)
+        await session.commit()
+
+    await session.refresh(todo)
+
+    response = client.get(
+        '/todos/',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()['todos'] == [
+        {
+            'created_at': time.isoformat(),
+            'updated_at': time.isoformat(),
+            'id': todo.id,
+            'title': todo.title,
+            'description': todo.description,
+            'state': todo.state,
+        }
+    ]
 
 
 @pytest.mark.asyncio
